@@ -1,4 +1,4 @@
-"""Image d'un signal, style sombre façon TradingView : bougies, Bollinger, MM7, entrée, stop, objectif."""
+"""Image d'un signal, style sombre façon TradingView : bougies, entrée, stop, objectif (+ Bollinger et MM7 pour les bulles)."""
 
 import io
 
@@ -27,17 +27,16 @@ def render(df: pd.DataFrame, s, bars: int = 80) -> bytes:
     buy = s.direction == "achat"
     marker = pd.Series(float("nan"), index=win.index)
     marker.iloc[-1] = s.entry
-    plots = [
-        mpf.make_addplot(win[["bb_up", "bb_low"]], color="#2962ff", width=0.8),
-        mpf.make_addplot(win["bb_mid"], color="#ff9800", width=1.0),
-        mpf.make_addplot(win["mm7"], color="#d1d4dc", width=0.6, linestyle=":"),
-        mpf.make_addplot(marker, type="scatter", markersize=160, marker="^" if buy else "v",
-                         color="#26a69a" if buy else "#ef5350"),
-    ]
+    plots = [mpf.make_addplot(marker, type="scatter", markersize=160, marker="^" if buy else "v",
+                              color="#26a69a" if buy else "#ef5350")]
+    if s.pattern.startswith("Bulle"):
+        plots += [mpf.make_addplot(win[["bb_up", "bb_low"]], color="#2962ff", width=0.8),
+                  mpf.make_addplot(win["bb_mid"], color="#ff9800", width=1.0),
+                  mpf.make_addplot(win["mm7"], color="#d1d4dc", width=0.6, linestyle=":")]
     buf = io.BytesIO()
     mpf.plot(win[["open", "high", "low", "close", "volume"]], type="candle", style=STYLE, addplot=plots,
              title=f"{s.asset} {s.tf} - {s.pattern} ({s.direction})", figsize=(11, 6), tight_layout=True,
-             datetime_format="%d/%m %Hh" if s.tf == "4H" else "%d/%m",
+             datetime_format="%d/%m" if s.tf == "1D" else "%d/%m %H:%M",
              hlines=dict(hlines=[s.entry, s.stop, s.target], colors=["#d1d4dc", "#ef5350", "#26a69a"],
                          linestyle="--", linewidths=0.9),
              savefig=dict(fname=buf, dpi=110, format="png"))

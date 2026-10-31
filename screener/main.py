@@ -1,9 +1,9 @@
-"""Passage du screener : lancé toutes les heures par GitHub Actions.
+"""Passage du screener : lancé tous les quarts d'heure par GitHub Actions (bulles en H1 et M15, OPR en M15).
 
-Chaque passage n'envoie que les signaux des bougies clôturées depuis moins de WINDOW
-(l'heure écoulée), pour ne pas renvoyer deux fois le même signal.
+Chaque passage n'envoie que les signaux des bougies clôturées depuis moins de --hours
+(le quart d'heure écoulé), pour ne pas renvoyer deux fois le même signal.
 
-Usage : python -m screener.main [--hours N]   (N > 1 pour rejouer les dernières heures en essai)
+Usage : python -m screener.main [--hours N]   (N plus grand pour rejouer les dernières heures en essai)
 """
 
 import argparse
@@ -13,18 +13,19 @@ import pandas as pd
 
 from . import config
 from .charts import render
-from .context import higher_flux
-from .data import get_candles
-from .detectors import bulles
+from .context import higher_flux, stop_vol
+from .data import DURATION, get_candles
+from .detectors import bulles, opr
 from .telegram import send_photo
 
-DETECTORS = [bulles.detect]
+# Chaque détecteur et ses unités de temps.
+DETECTORS = [(bulles.detect, config.BUBBLE_TIMEFRAMES), (opr.detect, config.OPR_TIMEFRAMES)]
 NY = "America/New_York"
 
 
 def close_time(t: pd.Timestamp, tf: str) -> pd.Timestamp:
-    if tf == "4H":
-        return t.tz_convert(NY) + pd.Timedelta(hours=4)
+    if tf in DURATION:
+        return t.tz_convert(NY) + DURATION[tf]
     return pd.Timestamp(t.date(), tz=NY) + pd.Timedelta(hours=17)  # clôture de séance CME
 
 
@@ -34,10 +35,10 @@ def caption(s) -> str:
     when = close_time(s.time, s.tf).tz_convert("Europe/Paris").strftime("%d/%m %H:%M")
     lines = [
         f"<b>{arrow} · {s.asset} · {s.tf}</b>",
-        f"🫧 {html.escape(s.pattern, quote=False)} · <b>{s.context}</b>",
+        f"{'🫧' if s.pattern.startswith('Bulle') else '📐'} {html.escape(s.pattern, quote=False)} · <b>{s.context}</b>",
         f"Clôture {when} (Paris)",
         "",
-        f"Entrée {s.entry} · Stop {s.stop} · Objectif {s.target} (MM20)",
+        f"Entrée {s.entry} · Stop {s.stop} · Objectif {s.target}",
         f"R/R {s.rr}",
         *[f"• {html.escape(n, quote=False)}" for n in s.notes],
         "",
@@ -47,16 +48,19 @@ def caption(s) -> str:
     return "\n".join(lines)
 
 
-def run(window_hours: float = 1.0) -> int:
+def run(window_hours: float = 0.25) -> int:
     now = pd.Timestamp.now(tz=NY)
     sent = 0
     for asset, ticker in config.ASSETS.items():
-        daily = get_candles(ticker, "1D")
-        for tf in config.TIMEFRAMES:
-            df = daily if tf == "1D" else get_candles(ticker, tf)
-            flux = higher_flux(df, tf, daily)
-            for detect in DETECTORS:
-                for s in detect(df, asset, tf, flux):
+        candles = {"1D": get_candles(ticker, "1D")}
+        for detect, tfs in DETECTORS:
+            for tf in tfs:
+                for need in (tf, "1H"):  # le M15 a besoin du H1 pour son flux
+                    if need not in candles:
+                        candles[need] = get_candles(ticker, need)
+                df = candles[tf]
+                flux = higher_flux(df, tf, candles["1D"], candles["1H"])
+                for s in detect(df, asset, tf, flux, stop_vol(df, candles["1D"])):
                     if now - close_time(s.time, tf) > pd.Timedelta(hours=window_hours):
                         continue
                     name = f"{asset}_{tf}_{s.time:%Y%m%d%H%M}_{s.direction}"
@@ -68,6 +72,6 @@ def run(window_hours: float = 1.0) -> int:
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    # shortcut: fenêtre glissante d'une heure ; un passage GitHub très en retard peut doubler ou rater un signal, ajouter un état mémorisé si ça arrive.
-    p.add_argument("--hours", type=float, default=1.0)
+    # shortcut: fenêtre glissante d'un quart d'heure ; un passage GitHub très en retard peut doubler ou rater un signal, ajouter un état mémorisé si ça arrive.
+    p.add_argument("--hours", type=float, default=0.25)
     run(p.parse_args().hours)

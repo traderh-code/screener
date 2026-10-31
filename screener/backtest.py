@@ -9,11 +9,14 @@ from pathlib import Path
 import pandas as pd
 
 from . import config
-from .context import higher_flux
+from .context import higher_flux, stop_vol
 from .data import get_candles
 from .detectors import bulles
+from .main import DETECTORS
 
 MAX_BARS = 20  # au-delà, le trade est classé « sans issue »
+# Unités rejouées : celles des bulles, plus D/H4 pour comparer (python -m screener.backtest N 1H 15M 4H 1D).
+TIMEFRAMES = sys.argv[2:] or config.BUBBLE_TIMEFRAMES + config.OPR_TIMEFRAMES
 
 
 def outcome(df: pd.DataFrame, s) -> tuple[str, float]:
@@ -59,17 +62,20 @@ def main(n_charts: int = 0):
     out.mkdir(exist_ok=True)
     rows = []
     for asset, ticker in config.ASSETS.items():
-        daily = get_candles(ticker, "1D")
-        for tf in config.TIMEFRAMES:
-            df = daily if tf == "1D" else get_candles(ticker, tf)
-            for s in bulles.detect(df, asset, tf, higher_flux(df, tf, daily)):
+        candles = {"1D": get_candles(ticker, "1D"), "1H": get_candles(ticker, "1H")}
+        for detect, tf in [(d, tf) for d, tfs in DETECTORS for tf in tfs if tf in TIMEFRAMES]:
+            if tf not in candles:
+                candles[tf] = get_candles(ticker, tf)
+            df, daily = candles[tf], candles["1D"]
+            vol = stop_vol(df, daily) if tf != "1D" else None
+            for s in detect(df, asset, tf, higher_flux(df, tf, daily, candles["1H"]), vol):
                 res, r = outcome(df, s)
                 rows.append(dict(asset=asset, tf=tf, pattern=s.pattern, direction=s.direction,
                                  context=s.context, time=s.time, rr=s.rr, result=res, r=r))
                 if n_charts and len([x for x in rows if x["asset"] == asset and x["tf"] == tf]) <= n_charts:
                     chart(df, s, out / f"{asset}_{tf}_{s.time:%Y%m%d%H%M}.png")
     res = pd.DataFrame(rows)
-    res.to_csv(out / "bulles.csv", index=False)
+    res.to_csv(out / "signaux.csv", index=False)
     done = res[res.result != "sans issue"]
     print(f"{len(res)} signaux, {len(done)} avec issue")
     summary = done.groupby(["pattern", "tf", "context"]).agg(

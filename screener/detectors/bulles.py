@@ -35,7 +35,7 @@ def _streak(flags: pd.Series) -> pd.Series:
     return flags.astype(int).groupby(groups).cumsum()
 
 
-HIGHER = {"4H": "journalier", "1D": "hebdo"}
+HIGHER = {"15M": "H1", "1H": "journalier", "4H": "journalier", "1D": "hebdo"}
 
 
 def _rr(direction, entry, stop, target):
@@ -63,13 +63,17 @@ def _build(asset, tf, direction, flux, time, row, stop):
                   round(target, 2), round(rr, 2), context, notes)
 
 
-def detect(df: pd.DataFrame, asset: str, tf: str, flux: pd.Series | None = None) -> list[Signal]:
+def detect(df: pd.DataFrame, asset: str, tf: str, flux: pd.Series | None = None,
+           min_stop: pd.Series | None = None) -> list[Signal]:
     """Toutes les bulles de l'historique (la dernière bougie = la plus récente clôturée).
 
     flux : flux de l'unité supérieure aligné sur df (voir context.higher_flux) ; à défaut, neutre.
+    min_stop : distance de stop minimale en points (voir context.stop_vol) ; la technique décide
+    d'abord, on garde le plus large des deux.
     """
     d = prepare(df)
     flux = flux if flux is not None else pd.Series("neutre", index=df.index)
+    min_stop = (min_stop if min_stop is not None else pd.Series(0.0, index=df.index)).fillna(0.0)
     up_streak = _streak(d["bubble_up"])
     down_streak = _streak(d["bubble_down"])
     signals = []
@@ -77,10 +81,13 @@ def detect(df: pd.DataFrame, asset: str, tf: str, flux: pd.Series | None = None)
     for i in range(config.BB_PERIOD, len(d)):
         row = d.iloc[i]
         rng = row.high - row.low
+        vol = min_stop.iloc[i]
         if row.zero_g_up and row.close < row.open and up_streak.iloc[i] <= config.MAX_CONSECUTIVE_BUBBLES:
-            s = _build(asset, tf, "vente", flux.iloc[i], idx[i], row, row.high + config.STOP_BUFFER * rng)
+            stop = max(row.high + config.STOP_BUFFER * rng, row.close + vol)
+            s = _build(asset, tf, "vente", flux.iloc[i], idx[i], row, stop)
         elif row.zero_g_down and row.close > row.open and down_streak.iloc[i] <= config.MAX_CONSECUTIVE_BUBBLES:
-            s = _build(asset, tf, "achat", flux.iloc[i], idx[i], row, row.low - config.STOP_BUFFER * rng)
+            stop = min(row.low - config.STOP_BUFFER * rng, row.close - vol)
+            s = _build(asset, tf, "achat", flux.iloc[i], idx[i], row, stop)
         else:
             continue
         if s:

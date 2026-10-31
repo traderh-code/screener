@@ -45,3 +45,10 @@ def test_serie_de_bulles_ignoree():
         rows.append((price - 0.4, price + 0.1, price - 0.5, price))
     sig = bulles.detect(_df(rows), "T", "1D")
     assert all(s.time != _df(rows).index[-1] for s in sig)
+
+
+def test_stop_minimum_elargit_le_stop_technique():
+    rows = _flat() + [(96.4, 96.9, 96.3, 96.8)]
+    df = _df(rows)
+    large = bulles.detect(df, "T", "1D", min_stop=pd.Series(0.9, index=df.index))
+    assert large and large[-1].stop == round(96.8 - 0.9, 2)  # 0,9 de stop vol > stop technique (≈ 0,56)

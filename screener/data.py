@@ -28,13 +28,17 @@ def resample_h4(h1: pd.DataFrame) -> pd.DataFrame:
     return h4.dropna(subset=["open", "close"])
 
 
+# Durée des bougies intraday (le journalier clôture à 17 h New York, voir drop_unclosed).
+DURATION = {"15M": pd.Timedelta(minutes=15), "1H": pd.Timedelta(hours=1), "4H": pd.Timedelta(hours=4)}
+
+
 def drop_unclosed(df: pd.DataFrame, tf: str, now: pd.Timestamp | None = None) -> pd.DataFrame:
     """Retire la dernière bougie si elle n'est pas encore clôturée."""
     if df.empty:
         return df
     now = now or pd.Timestamp.now(tz="America/New_York")
-    if tf == "4H":
-        closed = df.index[-1] + pd.Timedelta(hours=4) <= now
+    if tf in DURATION:
+        closed = df.index[-1] + DURATION[tf] <= now
     else:
         # Bougie journalière Yahoo = date de séance ; la séance CME clôture à 17 h New York.
         session_close = pd.Timestamp(df.index[-1].date(), tz="America/New_York") + pd.Timedelta(hours=17)
@@ -48,4 +52,9 @@ def get_candles(ticker: str, tf: str) -> pd.DataFrame:
     if tf == "4H":
         # Yahoo limite l'horaire à 730 jours.
         return drop_unclosed(resample_h4(_download(ticker, "729d", "1h")), "4H")
+    if tf == "1H":
+        return drop_unclosed(_download(ticker, "729d", "1h").tz_convert("America/New_York"), "1H")
+    if tf == "15M":
+        # Yahoo limite le 15 minutes à 60 jours.
+        return drop_unclosed(_download(ticker, "59d", "15m").tz_convert("America/New_York"), "15M")
     raise ValueError(f"Unité de temps inconnue : {tf}")
