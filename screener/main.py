@@ -1,4 +1,4 @@
-"""Passage du screener : lancé tous les quarts d'heure par GitHub Actions (bulles en H1 et M15, OPR en M15).
+"""Passage du screener : lancé tous les quarts d'heure par GitHub Actions (bulles H1/M15, OPR M15, divergences D/H4).
 
 Chaque passage n'envoie que les signaux des bougies clôturées depuis moins de --hours
 (le quart d'heure écoulé), pour ne pas renvoyer deux fois le même signal.
@@ -15,12 +15,14 @@ from . import config
 from .charts import render
 from .context import higher_flux, stop_vol
 from .data import DURATION, get_candles
-from .detectors import bulles, opr
+from .detectors import bulles, divergences, opr
 from .telegram import send_photo
 
 # Chaque détecteur et ses unités de temps.
-DETECTORS = [(bulles.detect, config.BUBBLE_TIMEFRAMES), (opr.detect, config.OPR_TIMEFRAMES)]
+DETECTORS = [(bulles.detect, config.BUBBLE_TIMEFRAMES), (opr.detect, config.OPR_TIMEFRAMES),
+             (divergences.detect, config.DIV_TIMEFRAMES)]
 NY = "America/New_York"
+ICONS = {"Bulle apesanteur": "🫧", "OPR - sortie": "📐", "Divergence RSI": "〰️"}
 
 
 def close_time(t: pd.Timestamp, tf: str) -> pd.Timestamp:
@@ -35,7 +37,7 @@ def caption(s) -> str:
     when = close_time(s.time, s.tf).tz_convert("Europe/Paris").strftime("%d/%m %H:%M")
     lines = [
         f"<b>{arrow} · {s.asset} · {s.tf}</b>",
-        f"{'🫧' if s.pattern.startswith('Bulle') else '📐'} {html.escape(s.pattern, quote=False)} · <b>{s.context}</b>",
+        f"{ICONS.get(s.pattern, '📐')} {html.escape(s.pattern, quote=False)} · <b>{s.context}</b>",
         f"Clôture {when} (Paris)",
         "",
         f"Entrée {s.entry} · Stop {s.stop} · Objectif {s.target}",
@@ -60,7 +62,8 @@ def run(window_hours: float = 0.25) -> int:
                         candles[need] = get_candles(ticker, need)
                 df = candles[tf]
                 flux = higher_flux(df, tf, candles["1D"], candles["1H"])
-                for s in detect(df, asset, tf, flux, stop_vol(df, candles["1D"])):
+                vol = stop_vol(df, candles["1D"]) if tf != "1D" else None
+                for s in detect(df, asset, tf, flux, vol):
                     if now - close_time(s.time, tf) > pd.Timedelta(hours=window_hours):
                         continue
                     name = f"{asset}_{tf}_{s.time:%Y%m%d%H%M}_{s.direction}"

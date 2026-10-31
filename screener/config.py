@@ -26,6 +26,7 @@ TRADINGVIEW = {
 NOTION = {
     "Bulle apesanteur": "https://app.notion.com/p/4093dfd490b0815db170c0da9b1ec29d",
     "OPR - sortie": "https://app.notion.com/p/4093dfd490b08162bbf5fc3826c6f41d",
+    "Divergence RSI": "https://app.notion.com/p/4093dfd490b081d29898e1571695394a",
 }
 
 # Bollinger (20, 2) comme sur les graphiques de Romain.
@@ -49,3 +50,12 @@ PLAN_RR = 2.0   # à partir de ce R/R, on tente l'entrée optimisée au 50 % de 
 OPR_TIMEFRAMES = ["15M"]
 OPR_RR = 2.0
 OPR_MAX_DISTANCE = {"DOW": 100, "NQ": 50, "ES": 15}  # écart max clôture / borne, en points (mémo)
+
+# Divergences RSI (coaching du 22 oct. 2026), en journalier et H4.
+DIV_TIMEFRAMES = ["1D", "4H"]
+RSI_PERIOD = 14
+DIV_MIN_BARS = 5     # bougies entre les deux points de la divergence
+DIV_MAX_BARS = 18
+DIV_NOISE = 40       # bruit <= 40 en haussière, >= 60 (100 - 40) en baissière
+DIV_PIVOT = 2        # un creux / sommet = extrême sur 2 bougies de chaque côté
+DIV_MAX_WAIT = 10    # bougies max entre B et la cassure du bruit
