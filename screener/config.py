@@ -22,7 +22,6 @@ TRADINGVIEW = {
 
 # Fiche Notion de chaque pattern (lien dans le message).
 NOTION = {
-    "Bulle classique": "https://app.notion.com/p/4093dfd490b0815db170c0da9b1ec29d",
     "Bulle apesanteur": "https://app.notion.com/p/4093dfd490b0815db170c0da9b1ec29d",
 }
 
@@ -37,5 +36,7 @@ FLUX_SLOW = 50
 # Bulles
 MAX_CONSECUTIVE_BUBBLES = 3   # au-delà, marché en pleine accélération : pas de signal
 STOP_BUFFER = 0.10            # marge au-delà de la mèche, en fraction de la hauteur de la bougie bulle
-# Écart à trancher : mémo de Romain = 2, vidéo leçon 16 = 1,2-1,3.
-MIN_RR = 1.2
+# Coaching du 22 oct. 2026 : R/R ≥ 2 si le trade est dans le plan du matin, ≥ 3 sinon.
+# Le screener ne connaît pas le plan : il applique « hors plan ».
+MIN_RR = 3.0
+PLAN_RR = 2.0   # à partir de ce R/R, on tente l'entrée optimisée au 50 % de la bulle

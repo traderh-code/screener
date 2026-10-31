@@ -7,7 +7,7 @@ import pandas as pd
 class Signal:
     asset: str
     tf: str
-    pattern: str          # ex. "Bulle classique", "Bulle apesanteur"
+    pattern: str          # ex. "Bulle apesanteur"
     direction: str        # "achat" ou "vente"
     time: pd.Timestamp    # bougie qui déclenche le signal (clôturée)
     entry: float

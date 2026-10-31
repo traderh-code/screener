@@ -18,6 +18,11 @@ MAX_BARS = 20  # au-delà, le trade est classé « sans issue »
 
 def outcome(df: pd.DataFrame, s) -> tuple[str, float]:
     after = df.loc[df.index > s.time].head(MAX_BARS)
+    if s.notes and s.notes[0].startswith("Ordre limite"):  # entrée optimisée : il faut d'abord être exécuté
+        filled = (after.low <= s.entry) if s.direction == "achat" else (after.high >= s.entry)
+        if not filled.any():
+            return "non exécuté", 0.0
+        after = after.loc[filled.idxmax():]
     for _, bar in after.iterrows():
         if s.direction == "achat":
             hit_stop, hit_target = bar.low <= s.stop, bar.high >= s.target
