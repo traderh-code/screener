@@ -27,6 +27,7 @@ NOTION = {
     "Bulle apesanteur": "https://app.notion.com/p/4093dfd490b0815db170c0da9b1ec29d",
     "OPR - sortie": "https://app.notion.com/p/4093dfd490b08162bbf5fc3826c6f41d",
     "Divergence RSI": "https://app.notion.com/p/4093dfd490b081d29898e1571695394a",
+    "Sweep": "https://app.notion.com/p/4093dfd490b081cda995f664b4dc097c",
 }
 
 # Bollinger (20, 2) comme sur les graphiques de Romain.
@@ -59,3 +60,10 @@ DIV_MAX_BARS = 18
 DIV_NOISE = 40       # bruit <= 40 en haussière, >= 60 (100 - 40) en baissière
 DIV_PIVOT = 2        # un creux / sommet = extrême sur 2 bougies de chaque côté
 DIV_MAX_WAIT = 10    # bougies max entre B et la cassure du bruit
+
+# Sweeps (LST Sweep) sur des zones calculées (context.levels).
+SWEEP_TIMEFRAMES = ["1D"]  # backtest : H4 négatif (199 signaux, -13 R), journalier positif (56 signaux, +16 R)
+SWEEP_IMPULSE = 1.0   # la bougie qui balaie le niveau fait au moins 1 ATR14 d'étendue
+SWEEP_CLOSE_BEYOND = True  # la bougie de cassure clôture au-delà du niveau (pas une simple mèche)
+SWEEP_MAX_BARS = 2    # réintégration au plus 2 bougies après la cassure (« 2-3 bougies max »)
+SWEEP_MIN_RR = 2.0    # les zones tiennent lieu de plan : R/R 2 (Romain ne prend pas de sweep hors plan)

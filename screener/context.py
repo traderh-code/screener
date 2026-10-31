@@ -3,7 +3,7 @@
 import pandas as pd
 
 from . import config
-from .indicators import atr, ema
+from .indicators import atr, ema, value_area
 
 
 def flux_label(close: pd.Series) -> pd.Series:
@@ -47,3 +47,32 @@ def stop_vol(df: pd.DataFrame, daily: pd.DataFrame) -> pd.Series:
     par l'ATR 14 journalier de la veille ; brancher les indices de volatilité si les stops paraissent décalés.
     """
     return _by_session(config.STOP_VOL_FRACTION * atr(daily), df)
+
+
+def _session_dates(index: pd.DatetimeIndex) -> pd.Index:
+    """Date de séance CME de chaque bougie (le journalier Yahoo est déjà daté par séance)."""
+    if index.tz is None:
+        return pd.Index(index.date)
+    return pd.Index((index.tz_convert("America/New_York") + pd.Timedelta(hours=6)).date)
+
+
+def _week(dates: pd.Index) -> pd.Index:
+    return pd.Index(pd.to_datetime(dates).to_period("W-FRI"))
+
+
+def levels(df: pd.DataFrame, tf: str, daily: pd.DataFrame, h1: pd.DataFrame) -> pd.DataFrame:
+    """Zones connues à chaque bougie de df : plus haut / bas de la veille (intraday seulement), de la semaine
+    précédente, et VAH / VAL du volume profile de la semaine précédente (bougies H1)."""
+    out = pd.DataFrame(index=df.index)
+    if tf != "1D":
+        out["plus haut de la veille"] = _by_session(daily["high"], df)
+        out["plus bas de la veille"] = _by_session(daily["low"], df)
+    weeks = _week(_session_dates(df.index))
+    wk = daily.groupby(_week(pd.Index(daily.index.date))).agg(high=("high", "max"), low=("low", "min"))
+    va = {w: value_area(g) for w, g in h1.groupby(_week(_session_dates(h1.index)))}
+    va = pd.DataFrame(va, index=["val", "poc", "vah"]).T.sort_index()
+    for name, col, src in (("plus haut de la semaine passée", "high", wk), ("plus bas de la semaine passée", "low", wk),
+                           ("VAH hebdo", "vah", va), ("VAL hebdo", "val", va)):
+        prev = src[col].shift(1)  # semaine précédente, terminée
+        out[name] = prev.reindex(weeks).to_numpy()
+    return out

@@ -1,4 +1,4 @@
-"""Passage du screener : lancé tous les quarts d'heure par GitHub Actions (bulles H1/M15, OPR M15, divergences D/H4).
+"""Passage du screener : lancé tous les quarts d'heure par GitHub Actions (bulles H1/M15, OPR M15, divergences D/H4, sweeps D).
 
 Chaque passage n'envoie que les signaux des bougies clôturées depuis moins de --hours
 (le quart d'heure écoulé), pour ne pas renvoyer deux fois le même signal.
@@ -13,16 +13,16 @@ import pandas as pd
 
 from . import config
 from .charts import render
-from .context import higher_flux, stop_vol
+from .context import higher_flux, levels, stop_vol
 from .data import DURATION, get_candles
-from .detectors import bulles, divergences, opr
+from .detectors import bulles, divergences, opr, sweeps
 from .telegram import send_photo
 
 # Chaque détecteur et ses unités de temps.
 DETECTORS = [(bulles.detect, config.BUBBLE_TIMEFRAMES), (opr.detect, config.OPR_TIMEFRAMES),
-             (divergences.detect, config.DIV_TIMEFRAMES)]
+             (divergences.detect, config.DIV_TIMEFRAMES), (sweeps.detect, config.SWEEP_TIMEFRAMES)]
 NY = "America/New_York"
-ICONS = {"Bulle apesanteur": "🫧", "OPR - sortie": "📐", "Divergence RSI": "〰️"}
+ICONS = {"Bulle apesanteur": "🫧", "OPR - sortie": "📐", "Divergence RSI": "〰️", "Sweep": "🧹"}
 
 
 def close_time(t: pd.Timestamp, tf: str) -> pd.Timestamp:
@@ -63,7 +63,8 @@ def run(window_hours: float = 0.25) -> int:
                 df = candles[tf]
                 flux = higher_flux(df, tf, candles["1D"], candles["1H"])
                 vol = stop_vol(df, candles["1D"]) if tf != "1D" else None
-                for s in detect(df, asset, tf, flux, vol):
+                extra = {"zones": levels(df, tf, candles["1D"], candles["1H"])} if detect is sweeps.detect else {}
+                for s in detect(df, asset, tf, flux, vol, **extra):
                     if now - close_time(s.time, tf) > pd.Timedelta(hours=window_hours):
                         continue
                     name = f"{asset}_{tf}_{s.time:%Y%m%d%H%M}_{s.direction}"

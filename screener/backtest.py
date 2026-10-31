@@ -9,9 +9,10 @@ from pathlib import Path
 import pandas as pd
 
 from . import config
-from .context import higher_flux, stop_vol
+from .context import higher_flux, levels, stop_vol
 from .data import get_candles
 from .detectors import bulles
+from .detectors import sweeps
 from .main import DETECTORS
 
 MAX_BARS = 20  # au-delà, le trade est classé « sans issue »
@@ -68,7 +69,8 @@ def main(n_charts: int = 0):
                 candles[tf] = get_candles(ticker, tf)
             df, daily = candles[tf], candles["1D"]
             vol = stop_vol(df, daily) if tf != "1D" else None
-            for s in detect(df, asset, tf, higher_flux(df, tf, daily, candles["1H"]), vol):
+            extra = {"zones": levels(df, tf, daily, candles["1H"])} if detect is sweeps.detect else {}
+            for s in detect(df, asset, tf, higher_flux(df, tf, daily, candles["1H"]), vol, **extra):
                 res, r = outcome(df, s)
                 rows.append(dict(asset=asset, tf=tf, pattern=s.pattern, direction=s.direction,
                                  context=s.context, time=s.time, rr=s.rr, result=res, r=r))
