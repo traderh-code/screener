@@ -1,0 +1,29 @@
+name: screener
+
+on:
+  schedule:
+    # Toutes les heures à :07 (UTC) : chaque passage traite les bougies H4 / journalières clôturées dans l'heure.
+    - cron: "7 * * * *"
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: "Fenêtre en heures (rejouer les derniers signaux)"
+        default: "1"
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q
+      - run: python -m screener.main --hours "$HOURS"
+        env:
+          HOURS: ${{ github.event.inputs.hours || '1' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

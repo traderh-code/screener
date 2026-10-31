@@ -1,0 +1,6 @@
+pandas==3.1.0
+numpy
+yfinance==1.7.0
+mplfinance
+requests
+pytest
