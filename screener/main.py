@@ -10,6 +10,7 @@ Usage : python -m screener.main [--hours N] [--state fichier.json]
 import argparse
 import html
 import json
+import traceback
 from pathlib import Path
 
 import pandas as pd
@@ -90,31 +91,46 @@ def run(window_hours: float = 0.25, state_path: str | None = None) -> int:
 
 
 def _scan(now: pd.Timestamp, seen: dict, window: pd.Timedelta, catchup: pd.Timedelta) -> int:
-    sent = 0
+    """Une erreur sur un actif n'empêche pas de traiter les autres ; le passage échoue à la fin pour la signaler."""
+    sent, failed = 0, []
     for asset, ticker in config.ASSETS.items():
-        candles = {"1D": get_candles(ticker, "1D")}
-        for detect, tfs in DETECTORS:
-            for tf in tfs:
-                for need in (tf, "1H", "4H"):  # H1 : flux du M15 ; H4 : contre-argument de l'OPR
-                    if need not in candles:
-                        candles[need] = get_candles(ticker, need)
-                df = candles[tf]
-                flux = higher_flux(df, tf, candles["1D"], candles["1H"])
-                vol = stop_vol(df, candles["1D"]) if tf != "1D" else None
-                for s in detect(df, asset, tf, flux, vol, **extras(detect, df, tf, candles)):
-                    closed = close_time(s.time, tf)
-                    age = now - closed
-                    name = f"{asset}_{tf}_{s.time:%Y%m%d%H%M}_{s.direction}"
-                    key = f"{name}_{s.pattern}"  # deux setups peuvent partir sur la même bougie
-                    if age > catchup or key in seen:
-                        continue
-                    if age <= window:
-                        if age > pd.Timedelta(minutes=config.LATE_MINUTES):
-                            s.notes.append(f"Alerte en retard de {int(age.total_seconds() // 60)} min : "
-                                           "vérifier que l'entrée est encore valable")
-                        send_photo(caption(s), render(df, s), name)
-                        sent += 1
-                    seen[key] = closed.isoformat()
+        try:
+            sent += _scan_asset(asset, ticker, now, seen, window, catchup)
+        except Exception:
+            traceback.print_exc()
+            failed.append(asset)
+    if failed:
+        print(f"{sent} signal(s) envoyé(s)")
+        raise RuntimeError(f"Passage incomplet : {', '.join(failed)}")
+    return sent
+
+
+def _scan_asset(asset: str, ticker: str, now: pd.Timestamp, seen: dict, window: pd.Timedelta,
+                catchup: pd.Timedelta) -> int:
+    sent = 0
+    candles = {"1D": get_candles(ticker, "1D")}
+    for detect, tfs in DETECTORS:
+        for tf in tfs:
+            for need in (tf, "1H", "4H"):  # H1 : flux du M15 ; H4 : contre-argument de l'OPR
+                if need not in candles:
+                    candles[need] = get_candles(ticker, need)
+            df = candles[tf]
+            flux = higher_flux(df, tf, candles["1D"], candles["1H"])
+            vol = stop_vol(df, candles["1D"]) if tf != "1D" else None
+            for s in detect(df, asset, tf, flux, vol, **extras(detect, df, tf, candles)):
+                closed = close_time(s.time, tf)
+                age = now - closed
+                name = f"{asset}_{tf}_{s.time:%Y%m%d%H%M}_{s.direction}"
+                key = f"{name}_{s.pattern}"  # deux setups peuvent partir sur la même bougie
+                if age > catchup or key in seen:
+                    continue
+                if age <= window:
+                    if age > pd.Timedelta(minutes=config.LATE_MINUTES):
+                        s.notes.append(f"Alerte en retard de {int(age.total_seconds() // 60)} min : "
+                                       "vérifier que l'entrée est encore valable")
+                    send_photo(caption(s), render(df, s), name)
+                    sent += 1
+                seen[key] = closed.isoformat()
     return sent
 
 

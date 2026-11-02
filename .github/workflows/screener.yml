@@ -42,3 +42,26 @@ jobs:
         with:
           path: state/sent.json
           key: screener-state-${{ github.run_id }}-${{ github.run_attempt }}
+      # En shell : doit marcher même si l'installation Python a échoué. Un message au début et à la fin de la panne, pas à chaque passage.
+      - name: Alerte de panne
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATUS: ${{ job.status }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          prev=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow screener.yml --limit 20 --json databaseId,conclusion \
+            --jq "[.[] | select(.databaseId != $GITHUB_RUN_ID and (.conclusion == \"success\" or .conclusion == \"failure\"))][0].conclusion" || true)
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          text=""
+          if [ "$STATUS" != "success" ] && [ "$prev" != "failure" ]; then
+            text="⚠️ Screener en panne : plus aucune alerte garantie tant qu'il n'est pas rétabli. $url"
+          elif [ "$STATUS" = "success" ] && [ "$prev" = "failure" ]; then
+            text="✅ Screener rétabli. Les signaux de plus de 3 h pendant la panne sont perdus."
+          fi
+          echo "statut=$STATUS precedent=$prev message=${text:+oui}"
+          if [ -n "$text" ]; then
+            curl -sS -o /dev/null --fail-with-body "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+              --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$text"
+          fi

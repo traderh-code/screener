@@ -80,6 +80,25 @@ def test_echec_denvoi_garde_ce_qui_est_parti_et_retente_le_reste(scan, tmp_path,
     assert main.run(0.25, path) == 1
 
 
+def test_erreur_sur_un_actif_nempeche_pas_les_autres(scan, tmp_path, monkeypatch):
+    path = str(tmp_path / "sent.json")
+    main.run(0.25, path)
+    monkeypatch.setattr(config, "ASSETS", {"GOLD": "GC=F", "ES": "ES=F"})
+    good = main.get_candles
+
+    def flaky(ticker, tf):
+        if ticker == "GC=F":
+            raise RuntimeError("Aucune donnée Yahoo")
+        return good(ticker, tf)
+
+    monkeypatch.setattr(main, "get_candles", flaky)
+    scan["signals"] = [_signal(5)]
+    with pytest.raises(RuntimeError, match="GOLD"):
+        main.run(0.25, path)
+    assert len(scan["sent"]) == 1  # ES est parti malgré GOLD
+    assert len(json.loads(open(path, encoding="utf-8").read())) == 1  # et ne repartira pas
+
+
 def test_sans_state_le_comportement_dessai_ne_change_pas(scan):
     scan["signals"] = [_signal(5), _signal(60)]
     assert main.run(0.25) == 1
