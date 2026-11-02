@@ -10,6 +10,11 @@ on:
         description: "Fenêtre en heures (rejouer les derniers signaux)"
         default: "0.25"
 
+# Un seul passage à la fois : deux passages simultanés enverraient deux fois le même signal.
+concurrency:
+  group: screener
+  cancel-in-progress: false
+
 jobs:
   scan:
     runs-on: ubuntu-latest
@@ -22,8 +27,18 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - run: python -m pytest -q
-      - run: python -m screener.main --hours "$HOURS"
+      - uses: actions/cache/restore@v4
+        with:
+          path: state/sent.json
+          key: screener-state-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: screener-state-
+      - run: python -m screener.main --hours "$HOURS" --state state/sent.json
         env:
           HOURS: ${{ github.event.inputs.hours || '0.25' }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - uses: actions/cache/save@v4
+        if: always() && hashFiles('state/sent.json') != ''
+        with:
+          path: state/sent.json
+          key: screener-state-${{ github.run_id }}-${{ github.run_attempt }}

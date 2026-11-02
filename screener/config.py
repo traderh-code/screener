@@ -30,6 +30,10 @@ NOTION = {
     "Sweep": "https://app.notion.com/p/4093dfd490b081cda995f664b4dc097c",
 }
 
+# Rattrapage quand GitHub retarde un passage (écart observé : 43 min en médiane, 111 min au maximum).
+CATCHUP_HOURS = 3.0
+LATE_MINUTES = 20   # au-delà, l'alerte signale son retard
+
 # Bollinger (20, 2) comme sur les graphiques de Romain.
 BB_PERIOD = 20
 BB_STD = 2.0

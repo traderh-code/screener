@@ -1,13 +1,16 @@
 """Passage du screener : lancé tous les quarts d'heure par GitHub Actions (bulles H1/M15, OPR M15, divergences D/H4, sweeps D).
 
-Chaque passage n'envoie que les signaux des bougies clôturées depuis moins de --hours
-(le quart d'heure écoulé), pour ne pas renvoyer deux fois le même signal.
+GitHub retarde souvent les passages : avec --state, le fichier garde les signaux déjà traités, et chaque passage
+envoie ceux des config.CATCHUP_HOURS dernières heures qui n'y sont pas encore. Sans fichier d'état (premier passage,
+essai), seule la fenêtre --hours est envoyée ; avec --state, le reste est noté comme déjà traité, pas envoyé.
 
-Usage : python -m screener.main [--hours N]   (N plus grand pour rejouer les dernières heures en essai)
+Usage : python -m screener.main [--hours N] [--state fichier.json]
 """
 
 import argparse
 import html
+import json
+from pathlib import Path
 
 import pandas as pd
 
@@ -59,8 +62,34 @@ def caption(s) -> str:
     return "\n".join(lines)
 
 
-def run(window_hours: float = 0.25) -> int:
+def load_state(path: str | None) -> dict | None:
+    return json.loads(Path(path).read_text(encoding="utf-8")) if path and Path(path).exists() else None
+
+
+def save_state(path: str, seen: dict, now: pd.Timestamp) -> None:
+    limit = now - pd.Timedelta(hours=config.CATCHUP_HOURS)
+    kept = {k: v for k, v in seen.items() if pd.Timestamp(v) >= limit}
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(json.dumps(kept, indent=0), encoding="utf-8")
+
+
+def run(window_hours: float = 0.25, state_path: str | None = None) -> int:
     now = pd.Timestamp.now(tz=NY)
+    state = load_state(state_path)
+    seen = state or {}
+    window = pd.Timedelta(hours=window_hours if state is None else max(window_hours, config.CATCHUP_HOURS))
+    catchup = pd.Timedelta(hours=max(window_hours, config.CATCHUP_HOURS))
+    sent = 0
+    try:
+        sent = _scan(now, seen, window, catchup)
+    finally:  # même après une erreur : ce qui est parti ne doit pas repartir
+        if state_path:
+            save_state(state_path, seen, now)
+    print(f"{sent} signal(s) envoyé(s)")
+    return sent
+
+
+def _scan(now: pd.Timestamp, seen: dict, window: pd.Timedelta, catchup: pd.Timedelta) -> int:
     sent = 0
     for asset, ticker in config.ASSETS.items():
         candles = {"1D": get_candles(ticker, "1D")}
@@ -73,17 +102,25 @@ def run(window_hours: float = 0.25) -> int:
                 flux = higher_flux(df, tf, candles["1D"], candles["1H"])
                 vol = stop_vol(df, candles["1D"]) if tf != "1D" else None
                 for s in detect(df, asset, tf, flux, vol, **extras(detect, df, tf, candles)):
-                    if now - close_time(s.time, tf) > pd.Timedelta(hours=window_hours):
-                        continue
+                    closed = close_time(s.time, tf)
+                    age = now - closed
                     name = f"{asset}_{tf}_{s.time:%Y%m%d%H%M}_{s.direction}"
-                    send_photo(caption(s), render(df, s), name)
-                    sent += 1
-    print(f"{sent} signal(s) envoyé(s)")
+                    key = f"{name}_{s.pattern}"  # deux setups peuvent partir sur la même bougie
+                    if age > catchup or key in seen:
+                        continue
+                    if age <= window:
+                        if age > pd.Timedelta(minutes=config.LATE_MINUTES):
+                            s.notes.append(f"Alerte en retard de {int(age.total_seconds() // 60)} min : "
+                                           "vérifier que l'entrée est encore valable")
+                        send_photo(caption(s), render(df, s), name)
+                        sent += 1
+                    seen[key] = closed.isoformat()
     return sent
 
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    # shortcut: fenêtre glissante d'un quart d'heure ; un passage GitHub très en retard peut doubler ou rater un signal, ajouter un état mémorisé si ça arrive.
     p.add_argument("--hours", type=float, default=0.25)
-    run(p.parse_args().hours)
+    p.add_argument("--state", default=None)
+    args = p.parse_args()
+    run(args.hours, args.state)
