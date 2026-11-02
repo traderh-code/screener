@@ -46,11 +46,18 @@ STOP_VOL_FRACTION = 0.20      # stop minimum = 20 % de l'expected move du jour (
 # Le screener ne connaît pas le plan : il applique « hors plan ».
 MIN_RR = 3.0
 PLAN_RR = 2.0   # à partir de ce R/R, on tente l'entrée optimisée au 50 % de la bulle
+BUBBLE_MUST_BE_EXTREME = True  # la mèche doit dépasser celle de la bougie précédente (vidéo QPEL3pUjqPo, 33:49)
+BUBBLE_ACCEL_CLOSES = 2        # pas de bulle après 2 clôtures de suite hors de la bande (vidéo fjMm8MQmMoQ, 30:29)
 
 # OPR (indices US seulement), signal en M15 (choix de l'utilisateur ; Romain prend le M5 en 2026).
 OPR_TIMEFRAMES = ["15M"]
 OPR_RR = 2.0
 OPR_MAX_DISTANCE = {"DOW": 100, "NQ": 50, "ES": 15}  # écart max clôture / borne, en points (mémo)
+# Vidéo OPR 3.0 (ZmEib0PNTvo) et checklist (_BuKVJt_uxQ).
+OPR_LAST_ENTRY = "13:30"   # heure de New York, 19h30 à Paris : séance trop tardive [30:20]
+OPR_SKIP_NEWS = True       # bougie qui clôture à 10h New York (16h Paris, news dans les 5 min) ignorée [30:20]
+OPR_CANCEL_R1 = True       # R1 atteint avant le pullback : ordre annulé [29:18]
+OPR_H4_CONTRA = True       # bulle H4 de la séance dans le sens opposé : pas d'OPR [12:12]
 
 # Divergences RSI (coaching du 22 oct. 2026), en journalier et H4.
 DIV_TIMEFRAMES = ["1D", "4H"]

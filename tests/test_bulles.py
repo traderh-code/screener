@@ -47,6 +47,27 @@ def test_serie_de_bulles_ignoree():
     assert all(s.time != _df(rows).index[-1] for s in sig)
 
 
+def test_meche_plus_loin_sur_la_bougie_precedente_ignoree():
+    rows = _flat() + [(96.0, 96.5, 95.0, 96.2), (96.0, 96.3, 95.5, 96.2)]  # plus bas 95,5, au-dessus de 95
+    df = _df(rows)
+    assert df.index[-1] not in [s.time for s in bulles.detect(df, "T", "1D")]
+    monkey = bulles.config.BUBBLE_MUST_BE_EXTREME
+    bulles.config.BUBBLE_MUST_BE_EXTREME = False
+    try:
+        assert df.index[-1] in [s.time for s in bulles.detect(df, "T", "1D")]  # c'est bien ce filtre qui l'écarte
+    finally:
+        bulles.config.BUBBLE_MUST_BE_EXTREME = monkey
+
+
+def test_deux_clotures_hors_bande_avant_la_bulle_ignoree(monkeypatch):
+    rows = _flat() + [(99.5, 99.6, 97.0, 97.2), (97.2, 97.3, 96.0, 96.1)]  # deux clôtures sous la bande basse
+    rows += [(94.5, 95.0, 94.4, 94.9)]  # apesanteur verte, plus bas du mouvement
+    df = _df(rows)
+    assert df.index[-1] not in [s.time for s in bulles.detect(df, "T", "1D")]
+    monkeypatch.setattr(bulles.config, "BUBBLE_ACCEL_CLOSES", 99)
+    assert df.index[-1] in [s.time for s in bulles.detect(df, "T", "1D")]  # c'est bien ce filtre qui l'écarte
+
+
 def test_stop_minimum_elargit_le_stop_technique():
     rows = _flat() + [(96.4, 96.9, 96.3, 96.8)]
     df = _df(rows)

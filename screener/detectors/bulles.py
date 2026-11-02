@@ -7,7 +7,9 @@
 - R/R : le screener ne connaît pas le plan du matin, il applique la règle « hors plan » (MIN_RR).
   Si le R/R à la clôture n'atteint que PLAN_RR, on tente l'entrée optimisée : ordre limite au 50 %
   de la bulle, même stop ; le signal n'est envoyé que si ce R/R optimisé atteint MIN_RR.
-- Pas de signal après une série de plus de MAX_CONSECUTIVE_BUBBLES bulles (marché en accélération).
+- Pas de signal après une série de plus de MAX_CONSECUTIVE_BUBBLES bulles, ni après BUBBLE_ACCEL_CLOSES
+  clôtures de suite hors de la bande (marché en accélération).
+- La mèche de la bulle doit être l'extrême du mouvement : pas de mèche plus loin sur la bougie précédente.
 """
 
 import pandas as pd
@@ -33,6 +35,16 @@ def _streak(flags: pd.Series) -> pd.Series:
     """Nombre de bulles consécutives se terminant sur chaque bougie."""
     groups = (~flags).cumsum()
     return flags.astype(int).groupby(groups).cumsum()
+
+
+def zero_g_directions(df: pd.DataFrame, duration: pd.Timedelta) -> pd.Series:
+    """Sens des bulles apesanteur de la bonne couleur (sans filtre de R/R), indexé sur leur heure de clôture."""
+    d = prepare(df)
+    achat = d["zero_g_down"] & (d["close"] > d["open"])
+    vente = d["zero_g_up"] & (d["close"] < d["open"])
+    out = pd.concat([pd.Series("achat", index=d.index[achat]), pd.Series("vente", index=d.index[vente])])
+    out.index = out.index + duration
+    return out.sort_index()
 
 
 HIGHER = {"15M": "H1", "1H": "journalier", "4H": "journalier", "1D": "hebdo"}
@@ -76,16 +88,24 @@ def detect(df: pd.DataFrame, asset: str, tf: str, flux: pd.Series | None = None,
     min_stop = (min_stop if min_stop is not None else pd.Series(0.0, index=df.index)).fillna(0.0)
     up_streak = _streak(d["bubble_up"])
     down_streak = _streak(d["bubble_down"])
+    # Clôtures de suite hors de la bande avant la bougie : au-delà du seuil, accélération.
+    calm_up = _streak(d["close"] > d["bb_up"]).shift(1, fill_value=0) < config.BUBBLE_ACCEL_CLOSES
+    calm_down = _streak(d["close"] < d["bb_low"]).shift(1, fill_value=0) < config.BUBBLE_ACCEL_CLOSES
+    extreme = config.BUBBLE_MUST_BE_EXTREME
+    top_ok = (d["high"] >= d["high"].shift(1)) | (not extreme)
+    bottom_ok = (d["low"] <= d["low"].shift(1)) | (not extreme)
     signals = []
     idx = d.index
     for i in range(config.BB_PERIOD, len(d)):
         row = d.iloc[i]
         rng = row.high - row.low
         vol = min_stop.iloc[i]
-        if row.zero_g_up and row.close < row.open and up_streak.iloc[i] <= config.MAX_CONSECUTIVE_BUBBLES:
+        if row.zero_g_up and row.close < row.open and up_streak.iloc[i] <= config.MAX_CONSECUTIVE_BUBBLES \
+                and calm_up.iloc[i] and top_ok.iloc[i]:
             stop = max(row.high + config.STOP_BUFFER * rng, row.close + vol)
             s = _build(asset, tf, "vente", flux.iloc[i], idx[i], row, stop)
-        elif row.zero_g_down and row.close > row.open and down_streak.iloc[i] <= config.MAX_CONSECUTIVE_BUBBLES:
+        elif row.zero_g_down and row.close > row.open and down_streak.iloc[i] <= config.MAX_CONSECUTIVE_BUBBLES \
+                and calm_down.iloc[i] and bottom_ok.iloc[i]:
             stop = min(row.low - config.STOP_BUFFER * rng, row.close - vol)
             s = _build(asset, tf, "achat", flux.iloc[i], idx[i], row, stop)
         else:

@@ -9,11 +9,10 @@ from pathlib import Path
 import pandas as pd
 
 from . import config
-from .context import higher_flux, levels, stop_vol
+from .context import higher_flux, stop_vol
 from .data import get_candles
 from .detectors import bulles
-from .detectors import sweeps
-from .main import DETECTORS
+from .main import DETECTORS, extras
 
 MAX_BARS = 20  # au-delà, le trade est classé « sans issue »
 # Unités rejouées : celles des bulles, plus D/H4 pour comparer (python -m screener.backtest N 1H 15M 4H 1D).
@@ -26,6 +25,11 @@ def outcome(df: pd.DataFrame, s) -> tuple[str, float]:
         filled = (after.low <= s.entry) if s.direction == "achat" else (after.high >= s.entry)
         if not filled.any():
             return "non exécuté", 0.0
+        if s.pattern == "OPR - sortie" and config.OPR_CANCEL_R1:
+            r1 = 2 * s.entry - s.stop
+            reached = (after.high >= r1) if s.direction == "achat" else (after.low <= r1)
+            if reached.any() and reached.idxmax() < filled.idxmax():
+                return "annulé", 0.0
         after = after.loc[filled.idxmax():]
     for _, bar in after.iterrows():
         if s.direction == "achat":
@@ -63,14 +67,13 @@ def main(n_charts: int = 0):
     out.mkdir(exist_ok=True)
     rows = []
     for asset, ticker in config.ASSETS.items():
-        candles = {"1D": get_candles(ticker, "1D"), "1H": get_candles(ticker, "1H")}
+        candles = {tf: get_candles(ticker, tf) for tf in ("1D", "1H", "4H")}
         for detect, tf in [(d, tf) for d, tfs in DETECTORS for tf in tfs if tf in TIMEFRAMES]:
             if tf not in candles:
                 candles[tf] = get_candles(ticker, tf)
             df, daily = candles[tf], candles["1D"]
             vol = stop_vol(df, daily) if tf != "1D" else None
-            extra = {"zones": levels(df, tf, daily, candles["1H"])} if detect is sweeps.detect else {}
-            for s in detect(df, asset, tf, higher_flux(df, tf, daily, candles["1H"]), vol, **extra):
+            for s in detect(df, asset, tf, higher_flux(df, tf, daily, candles["1H"]), vol, **extras(detect, df, tf, candles)):
                 res, r = outcome(df, s)
                 rows.append(dict(asset=asset, tf=tf, pattern=s.pattern, direction=s.direction,
                                  context=s.context, time=s.time, rr=s.rr, result=res, r=r))

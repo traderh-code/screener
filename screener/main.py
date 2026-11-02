@@ -25,6 +25,15 @@ NY = "America/New_York"
 ICONS = {"Bulle apesanteur": "🫧", "OPR - sortie": "📐", "Divergence RSI": "〰️", "Sweep": "🧹"}
 
 
+def extras(detect, df: pd.DataFrame, tf: str, candles: dict) -> dict:
+    """Données propres à un détecteur."""
+    if detect is sweeps.detect:
+        return {"zones": levels(df, tf, candles["1D"], candles["1H"])}
+    if detect is opr.detect:
+        return {"h4": candles["4H"]}
+    return {}
+
+
 def close_time(t: pd.Timestamp, tf: str) -> pd.Timestamp:
     if tf in DURATION:
         return t.tz_convert(NY) + DURATION[tf]
@@ -57,14 +66,13 @@ def run(window_hours: float = 0.25) -> int:
         candles = {"1D": get_candles(ticker, "1D")}
         for detect, tfs in DETECTORS:
             for tf in tfs:
-                for need in (tf, "1H"):  # le M15 a besoin du H1 pour son flux
+                for need in (tf, "1H", "4H"):  # H1 : flux du M15 ; H4 : contre-argument de l'OPR
                     if need not in candles:
                         candles[need] = get_candles(ticker, need)
                 df = candles[tf]
                 flux = higher_flux(df, tf, candles["1D"], candles["1H"])
                 vol = stop_vol(df, candles["1D"]) if tf != "1D" else None
-                extra = {"zones": levels(df, tf, candles["1D"], candles["1H"])} if detect is sweeps.detect else {}
-                for s in detect(df, asset, tf, flux, vol, **extra):
+                for s in detect(df, asset, tf, flux, vol, **extras(detect, df, tf, candles)):
                     if now - close_time(s.time, tf) > pd.Timedelta(hours=window_hours):
                         continue
                     name = f"{asset}_{tf}_{s.time:%Y%m%d%H%M}_{s.direction}"
