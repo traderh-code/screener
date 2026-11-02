@@ -28,7 +28,8 @@ def render(df: pd.DataFrame, s, bars: int = 80) -> bytes:
         win = win.tz_localize(None)  # mplfinance n'accepte pas les dates avec fuseau
     buy = s.direction == "achat"
     marker = pd.Series(float("nan"), index=win.index)
-    marker.iloc[-1] = s.entry
+    info = s.pattern in config.INFO_ONLY
+    marker.iloc[-1] = win["close"].iloc[-1] if info else s.entry
     plots = [mpf.make_addplot(marker, type="scatter", markersize=160, marker="^" if buy else "v",
                               color="#26a69a" if buy else "#ef5350")]
     if s.pattern.startswith("Bulle"):
@@ -38,11 +39,12 @@ def render(df: pd.DataFrame, s, bars: int = 80) -> bytes:
     if s.pattern.startswith("Divergence"):
         r = rsi(d["close"], config.RSI_PERIOD).iloc[max(0, pos - bars + 1): pos + 1]
         plots += [mpf.make_addplot(r.to_numpy(), panel=1, color="#b39ddb", ylabel="RSI", ylim=(0, 100))]
+    # Pas de niveaux de trade sur une simple information.
+    levels = {} if info else {"hlines": dict(hlines=[s.entry, s.stop, s.target], colors=["#d1d4dc", "#ef5350", "#26a69a"],
+                                             linestyle="--", linewidths=0.9)}
     buf = io.BytesIO()
     mpf.plot(win[["open", "high", "low", "close", "volume"]], type="candle", style=STYLE, addplot=plots,
-             title=f"{s.asset} {s.tf} - {s.pattern} ({s.direction})", figsize=(11, 6), tight_layout=True,
+             title=f"{s.asset} {s.tf} - {s.pattern} ({'info' if info else s.direction})", figsize=(11, 6), tight_layout=True,
              datetime_format="%d/%m" if s.tf == "1D" else "%d/%m %H:%M",
-             hlines=dict(hlines=[s.entry, s.stop, s.target], colors=["#d1d4dc", "#ef5350", "#26a69a"],
-                         linestyle="--", linewidths=0.9),
-             savefig=dict(fname=buf, dpi=110, format="png"))
+             savefig=dict(fname=buf, dpi=110, format="png"), **levels)
     return buf.getvalue()

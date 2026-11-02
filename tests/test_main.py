@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from screener import config, main
+from screener.detectors import bulles
 from screener.signal import Signal
 
 
@@ -97,6 +98,30 @@ def test_erreur_sur_un_actif_nempeche_pas_les_autres(scan, tmp_path, monkeypatch
         main.run(0.25, path)
     assert len(scan["sent"]) == 1  # ES est parti malgré GOLD
     assert len(json.loads(open(path, encoding="utf-8").read())) == 1  # et ne repartira pas
+
+
+def _bars():
+    rows = [(100, 100.8, 99.2, 100 + (0.5 if i % 2 else -0.5)) for i in range(30)] + [(96.4, 96.9, 96.3, 96.8)]
+    idx = pd.date_range("2026-10-01 10:00", periods=len(rows), freq="15min", tz=main.NY)
+    return pd.DataFrame(rows, columns=["open", "high", "low", "close"], index=idx).assign(volume=0)
+
+
+def test_bulle_en_simple_information_sans_plan_de_trade():
+    df = _bars()
+    s = bulles.detect(df, "ES", "15M")[-1]
+    text = main.caption(s)
+    assert "INFO" in text and "contexte seulement" in text and "hausse" in text
+    for mot in ("ACHAT", "Entrée", "Stop", "Objectif", "R/R", "Risque"):
+        assert mot not in text
+    assert main.render(df, s).startswith(b"\x89PNG")
+
+
+def test_les_autres_setups_gardent_leur_plan_de_trade():
+    df = _bars()
+    s = Signal("ES", "15M", "OPR - sortie", "achat", df.index[-1], 96.8, 96, 98, 2, "FRTM", ["Risque conseillé : 1 %"])
+    text = main.caption(s)
+    assert "ACHAT" in text and "Entrée 96.8" in text and "Risque" in text and "INFO" not in text
+    assert main.render(df, s).startswith(b"\x89PNG")
 
 
 def test_sans_state_le_comportement_dessai_ne_change_pas(scan):

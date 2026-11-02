@@ -48,6 +48,19 @@ def caption(s) -> str:
     arrow = "🟢 ACHAT" if s.direction == "achat" else "🔴 VENTE"
     tv = config.TRADINGVIEW[s.asset]
     when = close_time(s.time, s.tf).tz_convert("Europe/Paris").strftime("%d/%m %H:%M")
+    if s.pattern in config.INFO_ONLY:
+        notes = [n for n in s.notes if n.startswith(("Flux", "Alerte en retard"))]
+        return "\n".join([
+            f"<b>ℹ️ INFO · {s.asset} · {s.tf}</b>",
+            f"{ICONS.get(s.pattern, '📐')} {html.escape(s.pattern, quote=False)} · "
+            f"retournement possible à la {'hausse' if s.direction == 'achat' else 'baisse'}",
+            "Pas un signal de trade : contexte seulement",
+            f"Clôture {when} (Paris)",
+            *[f"• {html.escape(n, quote=False)}" for n in notes],
+            "",
+            f'<a href="https://www.tradingview.com/chart/?symbol={tv}">Graphique TradingView</a> · '
+            f'<a href="{config.NOTION[s.pattern]}">Fiche</a>',
+        ])
     lines = [
         f"<b>{arrow} · {s.asset} · {s.tf}</b>",
         f"{ICONS.get(s.pattern, '📐')} {html.escape(s.pattern, quote=False)} · <b>{s.context}</b>",
@@ -126,8 +139,8 @@ def _scan_asset(asset: str, ticker: str, now: pd.Timestamp, seen: dict, window: 
                     continue
                 if age <= window:
                     if age > pd.Timedelta(minutes=config.LATE_MINUTES):
-                        s.notes.append(f"Alerte en retard de {int(age.total_seconds() // 60)} min : "
-                                       "vérifier que l'entrée est encore valable")
+                        check = "" if s.pattern in config.INFO_ONLY else " : vérifier que l'entrée est encore valable"
+                        s.notes.append(f"Alerte en retard de {int(age.total_seconds() // 60)} min{check}")
                     send_photo(caption(s), render(df, s), name)
                     sent += 1
                 seen[key] = closed.isoformat()

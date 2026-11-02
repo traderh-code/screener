@@ -42,6 +42,9 @@ BB_STD = 2.0
 FLUX_FAST = 20
 FLUX_SLOW = 50
 
+# Envoyés comme simple information, sans plan de trade (bulles : −7,6 R sur 48 trades en H1 au backtest du 02/11/2026).
+INFO_ONLY = {"Bulle apesanteur"}
+
 # Bulles
 MAX_CONSECUTIVE_BUBBLES = 3   # au-delà, marché en pleine accélération : pas de signal
 STOP_BUFFER = 0.10            # marge au-delà de la mèche, en fraction de la hauteur de la bougie bulle
