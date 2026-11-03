@@ -36,7 +36,7 @@ def render(df: pd.DataFrame, s, bars: int = 80) -> bytes:
         plots += [mpf.make_addplot(win[["bb_up", "bb_low"]], color="#2962ff", width=0.8),
                   mpf.make_addplot(win["bb_mid"], color="#ff9800", width=1.0),
                   mpf.make_addplot(win["mm7"], color="#d1d4dc", width=0.6, linestyle=":")]
-    if s.pattern.startswith("Divergence"):
+    if s.pattern.startswith("Divergence") or s.pattern == "RSI":
         r = rsi(d["close"], config.RSI_PERIOD).iloc[max(0, pos - bars + 1): pos + 1]
         plots += [mpf.make_addplot(r.to_numpy(), panel=1, color="#b39ddb", ylabel="RSI", ylim=(0, 100))]
     # Pas de niveaux de trade sur une simple information.

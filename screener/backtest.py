@@ -75,7 +75,7 @@ def main(n_charts: int = 0):
             df, daily = candles[tf], candles["1D"]
             vol = stop_vol(df, daily, candles["1H"], **implied) if tf != "1D" else None
             for s in detect(df, asset, tf, higher_flux(df, tf, daily, candles["1H"]), vol, **extras(detect, df, tf, candles)):
-                if s.pattern == "Gap":  # information sans entrée ni stop : rien à rejouer
+                if s.rr == 0:  # gap ou RSI : information sans entrée ni stop, rien à rejouer
                     continue
                 res, r = outcome(df, s)
                 rows.append(dict(asset=asset, tf=tf, pattern=s.pattern, direction=s.direction,

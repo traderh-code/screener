@@ -33,6 +33,7 @@ NOTION = {
     "Divergence RSI": "https://app.notion.com/p/4093dfd490b081d29898e1571695394a",
     "Sweep": "https://app.notion.com/p/4093dfd490b081cda995f664b4dc097c",
     "Gap": "https://app.notion.com/p/40a3dfd490b081e3ac89ccac9413e628",
+    "RSI": "https://app.notion.com/p/40a3dfd490b0819296a2feb1d6f4ef35",
 }
 
 # Rattrapage quand GitHub retarde un passage (écart observé : 43 min en médiane, 111 min au maximum).
@@ -56,8 +57,8 @@ FLUX_FAST = 20
 FLUX_SLOW = 50
 
 # Envoyés comme simple information, sans plan de trade (bulles : −7,6 R sur 48 trades en H1 au backtest du 02/11/2026).
-# Gaps : « jamais seul » chez Romain (formation, module 29).
-INFO_ONLY = {"Bulle apesanteur", "Gap"}
+# Gaps et RSI : « jamais seul » chez Romain (formation, modules 29 et 16).
+INFO_ONLY = {"Bulle apesanteur", "Gap", "RSI"}
 GAP_MIN_ATR = 0.1   # un gap plus petit que 10 % de l'ATR14 ne dit rien
 GAP_NOTE_MAX_ATR = 3.0  # note seulement pour un gap proche : à moins de 3 ATR14 journaliers de l'entrée
 
@@ -85,6 +86,8 @@ OPR_H4_CONTRA = True       # bulle H4 de la séance dans le sens opposé : pas d
 # Divergences RSI (coaching du 22 oct. 2026), en journalier et H4.
 DIV_TIMEFRAMES = ["1D", "4H"]
 RSI_PERIOD = 14
+RSI_OVERSOLD = 30
+RSI_OVERBOUGHT = 70
 DIV_MIN_BARS = 5     # bougies entre les deux points de la divergence
 DIV_MAX_BARS = 18
 DIV_NOISE = 40       # bruit <= 40 en haussière, >= 60 (100 - 40) en baissière
