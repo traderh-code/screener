@@ -33,6 +33,7 @@ NOTION = {
     "Divergence RSI": "https://app.notion.com/p/4093dfd490b081d29898e1571695394a",
     "Sweep": "https://app.notion.com/p/4093dfd490b081cda995f664b4dc097c",
     "Gap": "https://app.notion.com/p/40a3dfd490b081e3ac89ccac9413e628",
+    "Fibonacci 61,8": "https://app.notion.com/p/40a3dfd490b0814cba97dbce75bcfb34",
     "RSI": "https://app.notion.com/p/40a3dfd490b0819296a2feb1d6f4ef35",
 }
 
@@ -57,8 +58,8 @@ FLUX_FAST = 20
 FLUX_SLOW = 50
 
 # Envoyés comme simple information, sans plan de trade (bulles : −7,6 R sur 48 trades en H1 au backtest du 02/11/2026).
-# Gaps et RSI : « jamais seul » chez Romain (formation, modules 29 et 16).
-INFO_ONLY = {"Bulle apesanteur", "Gap", "RSI"}
+# Gaps et RSI : « jamais seul » chez Romain (formation, modules 29 et 16). 61,8 : à l'équilibre au backtest du 03/11/2026.
+INFO_ONLY = {"Bulle apesanteur", "Gap", "RSI", "Fibonacci 61,8"}
 GAP_MIN_ATR = 0.1   # un gap plus petit que 10 % de l'ATR14 ne dit rien
 GAP_NOTE_MAX_ATR = 3.0  # note seulement pour un gap proche : à moins de 3 ATR14 journaliers de l'entrée
 
@@ -93,6 +94,14 @@ DIV_MAX_BARS = 18
 DIV_NOISE = 40       # bruit <= 40 en haussière, >= 60 (100 - 40) en baissière
 DIV_PIVOT = 2        # un creux / sommet = extrême sur 2 bougies de chaque côté
 DIV_MAX_WAIT = 10    # bougies max entre B et la cassure du bruit
+
+# Méthode du 61,8 (formation, module 26). Marges de l'exemple du module : 15 et 10 points sur une vague de 800.
+FIB_TIMEFRAMES = ["1H", "4H"]
+FIB_MIN_ATR = 3.0          # vague d'au moins 3 ATR14 (choix du screener, fixé avant le backtest)
+FIB_MAX_WAIT = 20          # bougies max entre le sommet (creux) de la vague et la cassure du 61,8 %
+FIB_MIN_RR = 2.0
+FIB_STOP_MARGIN = 0.02     # stop au-delà du 50 %, en fraction de la vague
+FIB_TARGET_MARGIN = 0.0125 # objectif avant le 100 %, en fraction de la vague
 
 # Sweeps (LST Sweep) sur des zones calculées (context.levels).
 SWEEP_TIMEFRAMES = ["1D"]  # backtest : H4 négatif (199 signaux, -13 R), journalier positif (56 signaux, +16 R)

@@ -11,7 +11,7 @@ import pandas as pd
 from . import config
 from .context import higher_flux, stop_vol
 from .data import get_candles
-from .detectors import bulles
+from .detectors import bulles, fibo
 from .main import DETECTORS, extras, volatility
 
 MAX_BARS = 20  # au-delà, le trade est classé « sans issue »
@@ -28,6 +28,10 @@ def outcome(df: pd.DataFrame, s) -> tuple[str, float]:
         if s.pattern == "OPR - sortie" and config.OPR_CANCEL_R1:
             r1 = 2 * s.entry - s.stop
             reached = (after.high >= r1) if s.direction == "achat" else (after.low <= r1)
+            if reached.any() and reached.idxmax() < filled.idxmax():
+                return "annulé", 0.0
+        if s.pattern == fibo.NAME:
+            reached = (after.high >= s.target) if s.direction == "achat" else (after.low <= s.target)
             if reached.any() and reached.idxmax() < filled.idxmax():
                 return "annulé", 0.0
         after = after.loc[filled.idxmax():]
