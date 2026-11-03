@@ -20,6 +20,17 @@ def _download(ticker: str, period: str, interval: str) -> pd.DataFrame:
     return df.dropna(subset=["open", "high", "low", "close"])
 
 
+def get_index(ticker: str | None) -> pd.Series | None:
+    """Clôtures journalières d'un indice de volatilité ; None si Yahoo ne répond pas (le stop retombe sur l'ATR)."""
+    if not ticker:
+        return None
+    try:
+        return _download(ticker, "5y", "1d")["close"]
+    except Exception as e:
+        print(f"Indice {ticker} indisponible : {type(e).__name__}")
+        return None
+
+
 def resample_h4(h1: pd.DataFrame) -> pd.DataFrame:
     """H4 calé sur la session CME (ouverture 18 h New York) : 18-22, 22-02, 02-06, 06-10, 10-14, 14-18."""
     h1 = h1.tz_convert("America/New_York")

@@ -12,7 +12,7 @@ from . import config
 from .context import higher_flux, stop_vol
 from .data import get_candles
 from .detectors import bulles
-from .main import DETECTORS, extras
+from .main import DETECTORS, extras, volatility
 
 MAX_BARS = 20  # au-delà, le trade est classé « sans issue »
 # Unités rejouées : celles des bulles, plus D/H4 pour comparer (python -m screener.backtest N 1H 15M 4H 1D).
@@ -68,11 +68,12 @@ def main(n_charts: int = 0):
     rows = []
     for asset, ticker in config.ASSETS.items():
         candles = {tf: get_candles(ticker, tf) for tf in ("1D", "1H", "4H")}
+        implied = volatility(asset)
         for detect, tf in [(d, tf) for d, tfs in DETECTORS for tf in tfs if tf in TIMEFRAMES]:
             if tf not in candles:
                 candles[tf] = get_candles(ticker, tf)
             df, daily = candles[tf], candles["1D"]
-            vol = stop_vol(df, daily) if tf != "1D" else None
+            vol = stop_vol(df, daily, candles["1H"], **implied) if tf != "1D" else None
             for s in detect(df, asset, tf, higher_flux(df, tf, daily, candles["1H"]), vol, **extras(detect, df, tf, candles)):
                 res, r = outcome(df, s)
                 rows.append(dict(asset=asset, tf=tf, pattern=s.pattern, direction=s.direction,

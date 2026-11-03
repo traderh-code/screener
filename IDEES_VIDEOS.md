@@ -8,7 +8,7 @@
 - **[déjà là]** **Première cassure du jour seulement** [29:18].
 - **[non codé]** (réintégrations non alertées, décision du 30/10/2026) **Réintégration** : exiger R ≥ 2 jusqu'à la borne opposée [28:17].
 - **[codé]** (sans calendrier : la bougie de 10h New York est ignorée tous les jours) **Horaires** : rien autour de 16h (news), rien après ≈ 19h30 [30:20].
-- **[non codé]** (il faudrait le VIX dans le screener) **Stop** : ATR H1 si VIX > 20, sinon stop vol ; comparer les deux [24:17-28:17].
+- **[codé]** (progression linéaire entre VIX 20 et 40) **Stop** : ATR H1 si VIX > 20, sinon stop vol ; comparer les deux [24:17-28:17].
 
 ## Bulles (QPEL3pUjqPo, fjMm8MQmMoQ)
 - **[codé]** La **mèche de la bulle doit être l'extrême du mouvement** (sinon pas de signal) [33:49].

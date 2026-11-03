@@ -34,6 +34,14 @@ NOTION = {
 CATCHUP_HOURS = 3.0
 LATE_MINUTES = 20   # au-delà, l'alerte signale son retard
 
+# Stop vol = 20 % de l'expected move : prix x volatilité implicite / racine(252). Argent : pas d'indice exploitable sur
+# Yahoo, l'ATR journalier en tient lieu.
+IV_INDEX = {"ES": "^VIX1D", "NQ": "^VXN", "DOW": "^VXD", "GOLD": "^GVZ"}
+# Règle VIX (indices US) : jusqu'à 20 stop vol ; à 40 full ATR H1 ; entre les deux, de plus en plus d'ATR.
+VIX_TICKER = "^VIX"
+VIX_STRESS = 20.0
+VIX_FULL_ATR = 40.0
+
 # Bollinger (20, 2) comme sur les graphiques de Romain.
 BB_PERIOD = 20
 BB_STD = 2.0

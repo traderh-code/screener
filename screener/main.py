@@ -18,7 +18,7 @@ import pandas as pd
 from . import config
 from .charts import render
 from .context import higher_flux, levels, stop_vol
-from .data import DURATION, get_candles
+from .data import DURATION, get_candles, get_index
 from .detectors import bulles, divergences, opr, sweeps
 from .telegram import send_photo
 
@@ -36,6 +36,12 @@ def extras(detect, df: pd.DataFrame, tf: str, candles: dict) -> dict:
     if detect is opr.detect:
         return {"h4": candles["4H"]}
     return {}
+
+
+def volatility(asset: str) -> dict:
+    """Indices de volatilité de l'actif, pour context.stop_vol. Le VIX ne règle que les indices US."""
+    return {"iv": get_index(config.IV_INDEX.get(asset)),
+            "vix": get_index(config.VIX_TICKER) if asset in config.OPR_MAX_DISTANCE else None}
 
 
 def close_time(t: pd.Timestamp, tf: str) -> pd.Timestamp:
@@ -122,6 +128,7 @@ def _scan_asset(asset: str, ticker: str, now: pd.Timestamp, seen: dict, window: 
                 catchup: pd.Timedelta) -> int:
     sent = 0
     candles = {"1D": get_candles(ticker, "1D")}
+    implied = volatility(asset)
     for detect, tfs in DETECTORS:
         for tf in tfs:
             for need in (tf, "1H", "4H"):  # H1 : flux du M15 ; H4 : contre-argument de l'OPR
@@ -129,7 +136,7 @@ def _scan_asset(asset: str, ticker: str, now: pd.Timestamp, seen: dict, window: 
                     candles[need] = get_candles(ticker, need)
             df = candles[tf]
             flux = higher_flux(df, tf, candles["1D"], candles["1H"])
-            vol = stop_vol(df, candles["1D"]) if tf != "1D" else None
+            vol = stop_vol(df, candles["1D"], candles["1H"], **implied) if tf != "1D" else None
             for s in detect(df, asset, tf, flux, vol, **extras(detect, df, tf, candles)):
                 closed = close_time(s.time, tf)
                 age = now - closed
