@@ -17,6 +17,7 @@ def scan(monkeypatch):
     monkeypatch.setitem(config.TRADINGVIEW, "ES", "X")
     monkeypatch.setattr(main, "get_candles", lambda t, tf: df)
     monkeypatch.setattr(main, "get_index", lambda t: None)
+    monkeypatch.setattr(main.gaps, "note_for", lambda s, daily: None)
     monkeypatch.setattr(main, "higher_flux", lambda *a: None)
     monkeypatch.setattr(main, "stop_vol", lambda *a, **k: None)
     monkeypatch.setattr(main, "render", lambda df, s: b"")

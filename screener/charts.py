@@ -42,6 +42,8 @@ def render(df: pd.DataFrame, s, bars: int = 80) -> bytes:
     # Pas de niveaux de trade sur une simple information.
     levels = {} if info else {"hlines": dict(hlines=[s.entry, s.stop, s.target], colors=["#d1d4dc", "#ef5350", "#26a69a"],
                                              linestyle="--", linewidths=0.9)}
+    if s.pattern == "Gap":  # stop et target portent les deux bords du gap
+        levels = {"hlines": dict(hlines=[s.stop, s.target], colors=["#d1d4dc", "#d1d4dc"], linestyle="--", linewidths=0.9)}
     buf = io.BytesIO()
     mpf.plot(win[["open", "high", "low", "close", "volume"]], type="candle", style=STYLE, addplot=plots,
              title=f"{s.asset} {s.tf} - {s.pattern} ({'info' if info else s.direction})", figsize=(11, 6), tight_layout=True,

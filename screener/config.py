@@ -28,6 +28,7 @@ NOTION = {
     "OPR - sortie": "https://app.notion.com/p/4093dfd490b08162bbf5fc3826c6f41d",
     "Divergence RSI": "https://app.notion.com/p/4093dfd490b081d29898e1571695394a",
     "Sweep": "https://app.notion.com/p/4093dfd490b081cda995f664b4dc097c",
+    "Gap": "https://app.notion.com/p/40a3dfd490b081e3ac89ccac9413e628",
 }
 
 # Rattrapage quand GitHub retarde un passage (écart observé : 43 min en médiane, 111 min au maximum).
@@ -51,7 +52,10 @@ FLUX_FAST = 20
 FLUX_SLOW = 50
 
 # Envoyés comme simple information, sans plan de trade (bulles : −7,6 R sur 48 trades en H1 au backtest du 02/11/2026).
-INFO_ONLY = {"Bulle apesanteur"}
+# Gaps : « jamais seul » chez Romain (formation, module 29).
+INFO_ONLY = {"Bulle apesanteur", "Gap"}
+GAP_MIN_ATR = 0.1   # un gap plus petit que 10 % de l'ATR14 ne dit rien
+GAP_NOTE_MAX_ATR = 3.0  # note seulement pour un gap proche : à moins de 3 ATR14 journaliers de l'entrée
 
 # Bulles
 MAX_CONSECUTIVE_BUBBLES = 3   # au-delà, marché en pleine accélération : pas de signal

@@ -1,4 +1,4 @@
-"""Passage du screener : lancé tous les quarts d'heure par GitHub Actions (bulles H1/M15, OPR M15, divergences D/H4, sweeps D).
+"""Passage du screener : lancé tous les quarts d'heure par GitHub Actions (bulles H1/M15, OPR M15, divergences D/H4, sweeps D, gaps D).
 
 GitHub retarde souvent les passages : avec --state, le fichier garde les signaux déjà traités, et chaque passage
 envoie ceux des config.CATCHUP_HOURS dernières heures qui n'y sont pas encore. Sans fichier d'état (premier passage,
@@ -19,14 +19,15 @@ from . import config
 from .charts import render
 from .context import higher_flux, levels, stop_vol
 from .data import DURATION, get_candles, get_index
-from .detectors import bulles, divergences, opr, sweeps
+from .detectors import bulles, divergences, gaps, opr, sweeps
 from .telegram import send_photo
 
 # Chaque détecteur et ses unités de temps.
 DETECTORS = [(bulles.detect, config.BUBBLE_TIMEFRAMES), (opr.detect, config.OPR_TIMEFRAMES),
-             (divergences.detect, config.DIV_TIMEFRAMES), (sweeps.detect, config.SWEEP_TIMEFRAMES)]
+             (divergences.detect, config.DIV_TIMEFRAMES), (sweeps.detect, config.SWEEP_TIMEFRAMES),
+             (gaps.detect, ["1D"])]
 NY = "America/New_York"
-ICONS = {"Bulle apesanteur": "🫧", "OPR - sortie": "📐", "Divergence RSI": "〰️", "Sweep": "🧹"}
+ICONS = {"Bulle apesanteur": "🫧", "OPR - sortie": "📐", "Divergence RSI": "〰️", "Sweep": "🧹", "Gap": "🕳️"}
 
 
 def extras(detect, df: pd.DataFrame, tf: str, candles: dict) -> dict:
@@ -58,8 +59,9 @@ def caption(s) -> str:
         notes = [n for n in s.notes if n.startswith(("Flux", "Alerte en retard"))]
         return "\n".join([
             f"<b>ℹ️ INFO · {s.asset} · {s.tf}</b>",
-            f"{ICONS.get(s.pattern, '📐')} {html.escape(s.pattern, quote=False)} · "
-            f"retournement possible à la {'hausse' if s.direction == 'achat' else 'baisse'}",
+            f"{ICONS.get(s.pattern, '📐')} {html.escape(s.pattern, quote=False)} · " + (
+                s.context if s.pattern == "Gap"
+                else f"retournement possible à la {'hausse' if s.direction == 'achat' else 'baisse'}"),
             "Pas un signal de trade : contexte seulement",
             f"Clôture {when} (Paris)",
             *[f"• {html.escape(n, quote=False)}" for n in notes],
@@ -148,6 +150,9 @@ def _scan_asset(asset: str, ticker: str, now: pd.Timestamp, seen: dict, window: 
                     if age > pd.Timedelta(minutes=config.LATE_MINUTES):
                         check = "" if s.pattern in config.INFO_ONLY else " : vérifier que l'entrée est encore valable"
                         s.notes.append(f"Alerte en retard de {int(age.total_seconds() // 60)} min{check}")
+                    note = None if s.pattern in config.INFO_ONLY else gaps.note_for(s, candles["1D"])
+                    if note:
+                        s.notes.append(note)
                     send_photo(caption(s), render(df, s), name)
                     sent += 1
                 seen[key] = closed.isoformat()
