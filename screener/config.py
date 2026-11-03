@@ -9,6 +9,10 @@ ASSETS = {
     "ES": "ES=F",
 }
 
+# Journalier Yahoo faux sur l'argent (35 séances sur 57 à moins de la moitié de l'étendue TradingView, 02/11/2026) ; son H1
+# est juste (1 % d'écart) : le journalier en est reconstruit, sur 2 ans d'historique au lieu de 5.
+DAILY_FROM_H1 = {"SI=F"}
+
 TIMEFRAMES = ["1D", "4H"]
 # Les bulles (setup intraday chez Romain) se travaillent en H1 et M15, pas en D/H4.
 BUBBLE_TIMEFRAMES = ["1H", "15M"]

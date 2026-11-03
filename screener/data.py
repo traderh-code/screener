@@ -5,6 +5,8 @@ import warnings
 import pandas as pd
 import yfinance as yf
 
+from . import config
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", message=".*inplace.*")
 
@@ -29,6 +31,14 @@ def get_index(ticker: str | None) -> pd.Series | None:
     except Exception as e:
         print(f"Indice {ticker} indisponible : {type(e).__name__}")
         return None
+
+
+def daily_from_h1(h1: pd.DataFrame) -> pd.DataFrame:
+    """Journalier par séance CME (ouverte à 18 h New York la veille de sa date), daté comme le journalier Yahoo."""
+    ny = h1.tz_convert("America/New_York")
+    session = pd.DatetimeIndex((ny.index + pd.Timedelta(hours=6)).date, name="Date")
+    return ny.groupby(session).agg(open=("open", "first"), high=("high", "max"), low=("low", "min"),
+                                   close=("close", "last"), volume=("volume", "sum"))
 
 
 def resample_h4(h1: pd.DataFrame) -> pd.DataFrame:
@@ -59,6 +69,8 @@ def drop_unclosed(df: pd.DataFrame, tf: str, now: pd.Timestamp | None = None) ->
 
 def get_candles(ticker: str, tf: str) -> pd.DataFrame:
     if tf == "1D":
+        if ticker in config.DAILY_FROM_H1:
+            return drop_unclosed(daily_from_h1(_download(ticker, "729d", "1h")), "1D")
         return drop_unclosed(_download(ticker, "5y", "1d"), "1D")
     if tf == "4H":
         # Yahoo limite l'horaire à 730 jours.
