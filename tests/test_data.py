@@ -22,14 +22,34 @@ def test_seance_en_cours_retiree():
     assert list(data.drop_unclosed(day, "1D", now).index) == [pd.Timestamp("2026-10-30")]
 
 
-def test_seul_largent_passe_par_le_h1(monkeypatch):
+def _h1_days():
+    """H1 du 28/10 18 h au 02/11 16 h (New York), une bougie par heure, plus haut = 100 + numéro de séance."""
+    idx = pd.date_range("2026-10-28 18:00", "2026-11-02 16:00", freq="h", tz="America/New_York")
+    session = (idx + pd.Timedelta(hours=6)).day
+    return pd.DataFrame({"open": 1.0, "high": 100.0 + session, "low": 1.0, "close": 2.0, "volume": 1}, index=idx)
+
+
+def test_journalier_recent_reconstruit_depuis_le_h1(monkeypatch):
+    old = pd.DataFrame({"open": 1.0, "high": 999.0, "low": 1.0, "close": 2.0, "volume": 1},
+                       index=pd.DatetimeIndex(pd.date_range("2026-10-20", "2026-11-02", freq="B"), name="Date"))
+
+    def fake(ticker, period, interval):
+        return _h1_days() if interval == "1h" else old
+
+    monkeypatch.setattr(data, "_download", fake)
+    day = data.get_candles("ES=F", "1D")
+    assert (day.loc[:"2026-10-31", "high"] == 999).all()  # l'historique reste celui du journalier Yahoo
+    # Les 2 dernières séances viennent du H1 (le H1 factice tourne aussi le week-end), pas du journalier.
+    assert list(day.loc["2026-11-01":, "high"]) == [101.0, 102.0] and day.index.is_unique
+
+
+def test_largent_entierement_depuis_le_h1(monkeypatch):
     calls = []
 
     def fake(ticker, period, interval):
-        calls.append((ticker, interval))
-        return _h1() if interval == "1h" else data.daily_from_h1(_h1())
+        calls.append(interval)
+        return _h1_days()
 
     monkeypatch.setattr(data, "_download", fake)
-    data.get_candles("SI=F", "1D")
-    data.get_candles("GC=F", "1D")
-    assert calls == [("SI=F", "1h"), ("GC=F", "1d")]
+    day = data.get_candles("SI=F", "1D")
+    assert calls == ["1h"] and day.index[0] == pd.Timestamp("2026-10-30")

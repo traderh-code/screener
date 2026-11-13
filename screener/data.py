@@ -69,9 +69,16 @@ def drop_unclosed(df: pd.DataFrame, tf: str, now: pd.Timestamp | None = None) ->
 
 def get_candles(ticker: str, tf: str) -> pd.DataFrame:
     if tf == "1D":
+        # Entre 18 h New York et la bascule de date chez Yahoo, sa dernière bougie journalière mélange la séance close et
+        # la suivante (faux gaps du 05/11/2026) : les 2 dernières séances sont reconstruites depuis le H1, découpé par
+        # séance CME. Pas davantage : la clôture du H1 (dernier prix) s'écarte plus de TradingView que celle de Yahoo.
+        hourly = drop_unclosed(_download(ticker, "729d", "1h").tz_convert("America/New_York"), "1H")
+        recent = drop_unclosed(daily_from_h1(hourly).iloc[1:], "1D")  # 1re séance tronquée par la limite de 730 jours
         if ticker in config.DAILY_FROM_H1:
-            return drop_unclosed(daily_from_h1(_download(ticker, "729d", "1h")), "1D")
-        return drop_unclosed(_download(ticker, "5y", "1d"), "1D")
+            return recent
+        recent = recent.iloc[-config.DAILY_FROM_H1_LAST:]
+        old = _download(ticker, "5y", "1d")
+        return pd.concat([old[old.index < recent.index[0]], recent])
     if tf == "4H":
         # Yahoo limite l'horaire à 730 jours.
         return drop_unclosed(resample_h4(_download(ticker, "729d", "1h")), "4H")
