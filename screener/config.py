@@ -33,6 +33,7 @@ NOTION = {
     "Divergence RSI": "https://app.notion.com/p/4093dfd490b081d29898e1571695394a",
     "Sweep": "https://app.notion.com/p/4093dfd490b081cda995f664b4dc097c",
     "Gap": "https://app.notion.com/p/40a3dfd490b081e3ac89ccac9413e628",
+    "Vague de Wolfe": "https://app.notion.com/p/40c3dfd490b0819d8d81e27287b8a947",
     "Fibonacci 61,8": "https://app.notion.com/p/40a3dfd490b0814cba97dbce75bcfb34",
     "RSI": "https://app.notion.com/p/40a3dfd490b0819296a2feb1d6f4ef35",
 }
@@ -59,7 +60,8 @@ FLUX_SLOW = 50
 
 # Envoyés comme simple information, sans plan de trade (bulles : −7,6 R sur 48 trades en H1 au backtest du 02/11/2026).
 # Gaps et RSI : « jamais seul » chez Romain (formation, modules 29 et 16). 61,8 : à l'équilibre au backtest du 03/11/2026.
-INFO_ONLY = {"Bulle apesanteur", "Gap", "RSI", "Fibonacci 61,8"}
+# Wolfe : non prioritaire chez Romain en 2026, un seul signal en 2 ans au backtest.
+INFO_ONLY = {"Bulle apesanteur", "Gap", "RSI", "Fibonacci 61,8", "Vague de Wolfe"}
 GAP_MIN_ATR = 0.1   # un gap plus petit que 10 % de l'ATR14 ne dit rien
 GAP_NOTE_MAX_ATR = 3.0  # note seulement pour un gap proche : à moins de 3 ATR14 journaliers de l'entrée
 
@@ -102,6 +104,12 @@ FIB_MAX_WAIT = 20          # bougies max entre le sommet (creux) de la vague et 
 FIB_MIN_RR = 2.0
 FIB_STOP_MARGIN = 0.02     # stop au-delà du 50 %, en fraction de la vague
 FIB_TARGET_MARGIN = 0.0125 # objectif avant le 100 %, en fraction de la vague
+
+# Vague de Wolfe (formation, modules 52 et 53) : M15 et H1, les unités de Romain en intraday.
+WOLFE_TIMEFRAMES = ["15M", "1H"]
+WOLFE_MIN_ATR = 1.0    # écart 1-2 d'au moins 1 ATR14 (choix du screener, fixé avant le backtest)
+WOLFE_MAX_WAIT = 10    # bougies max entre le point 5 et la réintégration
+WOLFE_MIN_RR = 2.0     # « au moins 2 » sur TP1 (point 4)
 
 # Sweeps (LST Sweep) sur des zones calculées (context.levels).
 SWEEP_TIMEFRAMES = ["1D"]  # backtest : H4 négatif (199 signaux, -13 R), journalier positif (56 signaux, +16 R)

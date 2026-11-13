@@ -1,4 +1,4 @@
-"""Passage du screener : lancé tous les quarts d'heure par GitHub Actions (bulles H1/M15, OPR M15, divergences D/H4, sweeps D, Fibonacci H1/H4, gaps et RSI D).
+"""Passage du screener : lancé tous les quarts d'heure par GitHub Actions (bulles H1/M15, OPR M15, divergences D/H4, sweeps D, Fibonacci H1/H4, Wolfe M15/H1, gaps et RSI D).
 
 GitHub retarde souvent les passages : avec --state, le fichier garde les signaux déjà traités, et chaque passage
 envoie ceux des config.CATCHUP_HOURS dernières heures qui n'y sont pas encore. Sans fichier d'état (premier passage,
@@ -19,16 +19,16 @@ from . import config
 from .charts import render
 from .context import higher_flux, levels, stop_vol
 from .data import DURATION, get_candles, get_index
-from .detectors import bulles, divergences, fibo, gaps, opr, rsi_zone, sweeps
+from .detectors import bulles, divergences, fibo, gaps, opr, rsi_zone, sweeps, wolfe
 from .telegram import send_photo
 
 # Chaque détecteur et ses unités de temps.
 DETECTORS = [(bulles.detect, config.BUBBLE_TIMEFRAMES), (opr.detect, config.OPR_TIMEFRAMES),
              (divergences.detect, config.DIV_TIMEFRAMES), (sweeps.detect, config.SWEEP_TIMEFRAMES),
-             (fibo.detect, config.FIB_TIMEFRAMES),
+             (fibo.detect, config.FIB_TIMEFRAMES), (wolfe.detect, config.WOLFE_TIMEFRAMES),
              (gaps.detect, ["1D"]), (rsi_zone.detect, ["1D"])]
 NY = "America/New_York"
-ICONS = {"Bulle apesanteur": "🫧", "OPR - sortie": "📐", "Divergence RSI": "〰️", "Sweep": "🧹", "Gap": "🕳️", "RSI": "📉", "Fibonacci 61,8": "🌀"}
+ICONS = {"Bulle apesanteur": "🫧", "OPR - sortie": "📐", "Divergence RSI": "〰️", "Sweep": "🧹", "Gap": "🕳️", "RSI": "📉", "Fibonacci 61,8": "🌀", "Vague de Wolfe": "🌊"}
 
 
 def extras(detect, df: pd.DataFrame, tf: str, candles: dict) -> dict:
